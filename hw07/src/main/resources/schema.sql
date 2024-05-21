@@ -18,14 +18,14 @@ create table books (
 );
 
 create table books_genres (
-    book_id bigint references books(id),
-    genre_id bigint references genres(id),
+    book_id bigint references books(id) on delete cascade,
+    genre_id bigint references genres(id) on delete cascade,
     primary key (book_id, genre_id)
 );
 
 create table comments (
     id bigserial,
-    book_id bigint references books(id),
+    book_id bigint references books(id) on delete cascade,
     text varchar(255),
     primary key (id)
 );

@@ -29,7 +29,6 @@ public class CommentServiceImpl implements CommentService {
     public Optional<CommentDto> findById(long id) {
         return commentRepository.findById(id)
                 .map(comment -> commentConverter.convert(comment, null));
-        //книгу можно не доставать
     }
 
     @Override
@@ -40,7 +39,6 @@ public class CommentServiceImpl implements CommentService {
                 .stream()
                 .map(comment -> commentConverter.convert(comment, bookId))
                 .toList();
-        //книгу лучше не доставать, если очень надо - отдельным запросом
     }
 
     @Transactional
@@ -63,7 +61,7 @@ public class CommentServiceImpl implements CommentService {
     @Override
     public CommentDto update(long id, String text) {
         var comment = commentRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Comment", id));//new Comment(id, text, null);
+                .orElseThrow(() -> new EntityNotFoundException("Comment", id));
 
         comment.setText(text);
 

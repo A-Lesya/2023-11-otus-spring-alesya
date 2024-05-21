@@ -12,8 +12,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @DisplayName("Репозиторий spring data для работы с книгами")
 @DataJpaTest
-
-//@Import({JdbcBookRepository.class, JdbcGenreRepository.class})
 class BookRepositoryTest {
 
     @Autowired
