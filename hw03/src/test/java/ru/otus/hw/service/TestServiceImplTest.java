@@ -13,7 +13,6 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -24,15 +23,15 @@ class TestServiceImplTest {
 
     private final List<Question> questions = generateQuestions();
 
+    private Integer correctAnswersCount = 0;
+
 
     @Test
     @DisplayName("asks all the given questions and nothing else and saves answers correctly")
     void shouldAskAllTheGivenQuestionsAndNothingElseAndSaveAnswersCorrectly() {
-        AtomicInteger correctAnswersCount = new AtomicInteger();
-
         var ioService = Mockito.mock(LocalizedIOService.class);
         var questionDao = buildQuestionDaoMock();
-        var askingQuestionService = buildAskingQuestionService(correctAnswersCount);
+        var askingQuestionService = buildAskingQuestionService();
 
         var testService = new TestServiceImpl(ioService, questionDao, askingQuestionService);
 
@@ -41,7 +40,7 @@ class TestServiceImplTest {
 
         questions.forEach(question -> Mockito.verify(askingQuestionService).askQuestion(argThat(q -> q == question)));
 
-        assertThat(testResult.getRightAnswersCount()).isSameAs(correctAnswersCount.get());
+        assertThat(testResult.getRightAnswersCount()).isSameAs(correctAnswersCount);
 
         assertThat(testResult.getAnsweredQuestions()).hasSameElementsAs(questions);
     }
@@ -54,7 +53,7 @@ class TestServiceImplTest {
         return questionDao;
     }
 
-    private AskingQuestionService buildAskingQuestionService(AtomicInteger correctAnswersCount) {
+    private AskingQuestionService buildAskingQuestionService() {
         var askingQuestionService = Mockito.mock(AskingQuestionService.class);
 
         Mockito.when(askingQuestionService.askQuestion(argThat(questions::contains)))
@@ -62,7 +61,7 @@ class TestServiceImplTest {
                     boolean answerIsCorrect = random.nextBoolean();
 
                     if (answerIsCorrect) {
-                        correctAnswersCount.getAndIncrement();
+                        correctAnswersCount++;
                     }
 
                     return answerIsCorrect;
