@@ -39,7 +39,6 @@ public class BookServiceImpl implements BookService {
                 .map(bookConverter::toDto);
     }
 
-    @Transactional(readOnly = true)
     @Override
     public List<BookDto> findAll() {
         return bookRepository.findAll()
@@ -48,7 +47,6 @@ public class BookServiceImpl implements BookService {
                 .toList();
     }
 
-    @Transactional(readOnly = true)
     @Override
     public List<BookDto> findByTitle(String title) {
         return bookRepository.findByTitleContainingIgnoreCase(title)

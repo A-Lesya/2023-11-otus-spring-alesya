@@ -8,7 +8,7 @@ public class Application {
 
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);
-        System.out.printf("Home page: %s", "http://localhost:8080");
+        System.out.printf("Home page: %s%n", "http://localhost:8080");
     }
 
 }
