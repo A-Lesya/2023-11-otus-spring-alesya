@@ -3,3 +3,4 @@
 группа: 2023-11
 
 [ДЗ №3 (spring boot)](hw03)
+[ДЗ №7 (spring data jpa)](hw07)
