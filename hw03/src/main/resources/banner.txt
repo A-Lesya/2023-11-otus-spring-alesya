@@ -1,0 +1,10 @@
+${AnsiBackground.BLACK}${AnsiColor.GREEN}
+${AnsiColor.GREEN}888    888 888       888${AnsiColor.BRIGHT_WHITE}        .d8888b.   .d8888b.
+${AnsiColor.GREEN}888    888 888   o   888${AnsiColor.BRIGHT_WHITE}       d88P  Y88b d88P  Y88b
+${AnsiColor.GREEN}888    888 888  d8b  888${AnsiColor.BRIGHT_WHITE}       888    888      .d88P
+${AnsiColor.GREEN}8888888888 888 d888b 888${AnsiColor.BRIGHT_WHITE}       888    888     8888"
+${AnsiColor.GREEN}888    888 888d88888b888${AnsiColor.BRIGHT_WHITE}       888    888      "Y8b.
+${AnsiColor.GREEN}888    888 88888P Y88888${AnsiColor.BRIGHT_WHITE}       888    888 888    888
+${AnsiColor.GREEN}888    888 8888P   Y8888${AnsiColor.BRIGHT_WHITE}       Y88b  d88P Y88b  d88P
+${AnsiColor.GREEN}888    888 888P     Y888${AnsiColor.BRIGHT_WHITE}        "Y8888P"   "Y8888P"
+${AnsiBackground.DEFAULT}${AnsiColor.DEFAULT}
