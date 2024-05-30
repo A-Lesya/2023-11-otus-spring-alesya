@@ -1,4 +1,4 @@
-package ru.otus.hw.service;
+package ru.otus.hw.service.impl;
 
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.DisplayName;
@@ -8,6 +8,8 @@ import ru.otus.hw.dao.QuestionDao;
 import ru.otus.hw.domain.Answer;
 import ru.otus.hw.domain.Question;
 import ru.otus.hw.domain.Student;
+import ru.otus.hw.service.AskingQuestionService;
+import ru.otus.hw.service.LocalizedIOService;
 
 import java.util.ArrayList;
 import java.util.LinkedList;

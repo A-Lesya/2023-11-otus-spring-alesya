@@ -1,10 +1,12 @@
-package ru.otus.hw.service;
+package ru.otus.hw.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import ru.otus.hw.dao.dto.QuestionConverter;
 import ru.otus.hw.dao.dto.QuestionForUIDto;
 import ru.otus.hw.domain.Question;
+import ru.otus.hw.service.AskingQuestionService;
+import ru.otus.hw.service.LocalizedIOService;
 
 @Service
 @RequiredArgsConstructor
