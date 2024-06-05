@@ -268,6 +268,11 @@
             showErrors(errors)
         }
 
+        async function handleBadRequestAwait(res) {
+            var json = await res.json()
+            handleBadRequest(json);
+        }
+
         function showErrors(errors) {
             errors.forEach(function (error) {
                 showError(error)
@@ -330,7 +335,7 @@
                         alert('job was deleted')
                         window.location.href = "/";
                     } else {
-                        alert('Something went wrong')
+                        handleBadRequestAwait(response)
                     }
                 })
                 .catch((error) => {

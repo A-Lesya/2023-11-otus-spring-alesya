@@ -6,12 +6,16 @@ import com.bercut.autotests.tools.jenkins_job_orchestrator.exceptions.EntityDele
 import com.bercut.autotests.tools.jenkins_job_orchestrator.exceptions.EntityNotFoundException;
 import com.bercut.autotests.tools.jenkins_job_orchestrator.exceptions.EntitySavingException;
 import com.bercut.autotests.tools.jenkins_job_orchestrator.models.TestCase;
+import com.bercut.autotests.tools.jenkins_job_orchestrator.models.requirement.TimeLimit;
 import com.bercut.autotests.tools.jenkins_job_orchestrator.repositories.ConfigRunRepository;
 import com.bercut.autotests.tools.jenkins_job_orchestrator.repositories.TcConfigRepository;
+import com.bercut.autotests.tools.jenkins_job_orchestrator.repositories.TimeLimitRepository;
 import com.bercut.autotests.tools.jenkins_job_orchestrator.services.TcConfigService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @RequiredArgsConstructor
 @Service
@@ -19,6 +23,8 @@ public class TcConfigServiceImpl implements TcConfigService {
     private final TcConfigRepository tcConfigRepository;
 
     private final ConfigRunRepository configRunRepository;
+
+    private final TimeLimitRepository timeLimitRepository;
 
     private final DefaultEntityBuilder defaultEntityBuilder;
 
@@ -57,6 +63,13 @@ public class TcConfigServiceImpl implements TcConfigService {
         if (isLastConfigInTest) {
             throw new EntityDeletingException("config", "test case");
         }
+
+        List<Long> timeLimitsId = config.get().getRuns().stream()
+                .flatMap((run -> run.getTimeLimits().stream()))
+                .map(TimeLimit::getId)
+                .toList();
+
+        timeLimitRepository.deleteAllById(timeLimitsId);
 
         configRunRepository.deleteByTcConfigId(id);
 
