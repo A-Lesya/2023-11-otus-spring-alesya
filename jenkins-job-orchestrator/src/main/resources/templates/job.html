@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="keywords" th:content="${keywords}" />
+    <title>Job</title>
+    <style type="text/css">
+        body {
+            padding: 50px;
+        }
+
+        label {
+            display: inline-block;
+            width: 100px;
+        }
+
+        input:read-only {
+            background: lightgray;
+        }
+
+        .row {
+            margin-top: 10px;
+        }
+
+        .requirements {
+            border: 1px solid steelblue;
+            width: 500px;
+            border-collapse: collapse;
+        }
+
+        .requirements tr td,
+        th {
+            padding: 5px;
+            border: 1px solid steelblue;
+        }
+
+        .requirements td:last-child,
+        td:first-child {
+            width: 100px;
+        }
+    </style>
+    <script src="/webjars/jquery/3.6.4/jquery.min.js"></script>
+</head>
+
+<body th:onload="loadForms()">
+    <a href="home.html" th:href="@{/}"><button type="button">Home</button></a>
+    <br />
+    <br />
+    <br />
+    <button type="button" onclick="save()" th:text="#{save-button-caption}">Save</button>
+    <button type="button" onclick="deleteJob()" th:text="#{delete-button-caption}">Delete</button>
+    <br />
+    <form id="errors"></form>
+    <br />
+
+    <form>
+        <div class="row">
+            <label for="job-path-input" th:text="#{job-path-label}">Path:</label>
+            <input id="job-path-input" type="text" />
+        </div>
+    </form>
+
+
+    <label for="contour" th:text="#{select-contour-label}">Choose contour:</label>
+    <br />
+    <select id="contour">
+    </select>
+    <br />
+    <br />
+
+    <form>
+        <div class="row">
+            <label for="requirements" th:text="#{requirements-label}">Requirements:</label>
+            <br />
+            <button type="button" onclick="addTimeLimit()" th:text="#{add-time-limit-button-caption}">add time
+                limit</button>
+            <br />
+            <form>
+                <table class="requirements" id="requirements">
+                    <thead>
+                        <tr>
+                            <th>type</th>
+                            <th>value</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="requirements-tbody">
+                    </tbody>
+                </table>
+            </form>
+            <br />
+            <label for="test-cases-input" th:text="#{set-test-cases-label}">Set tc_id list:</label>
+            <br />
+            <br />
+            <textarea id="test-cases-input" type="text" cols="20" rows="30"></textarea>
+
+        </div>
+    </form>
+
+    <script>
+        const jobId = getJobIdFromPathVariable()
+
+        function getJobIdFromPathVariable() {
+            var currentPath = window.location.pathname;
+
+            const regex = /\/job\/(\d+)/g;
+            let m;
+
+            if ((m = regex.exec(currentPath)) !== null) {
+                return m[1]
+            }
+            return null
+        }
+
+        function isNewJobAdditionPage() {
+            return !jobId
+        }
+
+        async function loadForms() {
+            var actualContourId = null
+            var actualTcsId = null
+            var actualPath = null
+            var job = null
+
+            var isNewJob = isNewJobAdditionPage()
+
+            if (!isNewJob) {
+                job = await getJob()
+
+                actualContourId = job.contourId
+                actualTcsId = job.testCasesId
+                actualPath = job.path
+            }
+
+            loadContours(actualContourId)
+            loadTestCases(actualTcsId)
+            loadPath(actualPath)
+            loadRequirements(job)
+        }
+
+        function loadContours(actualContourId) {
+            fetch(`/api/contour`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(rawResponse => rawResponse.json())
+                .then(json => addContoursToSelect(json, actualContourId))
+        }
+
+        function addContoursToSelect(contours, actualContourId) {
+            const select = document.getElementById("contour")
+            contours.forEach(function (contour) {
+                const option = document.createElement('option');
+                option.setAttribute('value', contour.id);
+                option.appendChild(document.createTextNode(contour.id));
+                select.appendChild(option);
+            });
+
+            if (actualContourId) {
+                select.value = actualContourId
+                select.dispatchEvent(new Event('change'))
+            }
+        }
+
+        function loadTestCases(actualTcsId) {
+            if (!actualTcsId) return
+            const input = document.getElementById("test-cases-input")
+
+            var value = actualTcsId.join("\n")
+            input.value = value
+        }
+
+        async function getJob() {
+            var res = await execGetJobRequest()
+            var json = await res.json()
+            var job = null
+
+            if (!res.ok) {
+                handleBadRequest(json)
+            } else {
+                job = json
+            }
+
+            return job
+        }
+
+        async function execGetJobRequest() {
+            return fetch(`/api/job/${jobId}`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+        }
+
+        function loadPath(actualPath) {
+            if (actualPath) {
+                const pathInput = document.getElementById("job-path-input")
+                pathInput.value = actualPath
+            }
+        }
+
+        function save() {
+            clearForms()
+
+            const path = getJobPath()
+
+            const contourId = getContourId()
+            const testCasesId = getTestCasesId()
+
+            const job = {
+                "path": path,
+                "contourId": contourId,
+                "testCasesId": testCasesId
+            }
+
+            execFetch(job)
+                .then(res => {
+                    res.json().then(json => {
+                        if (!res.ok) {
+                            handleBadRequest(json)
+                        } else {
+                            showSavedJob(json)
+                        }
+                    })
+                })
+        }
+
+        function execFetch(job) {
+            if (isNewJobAdditionPage()) {
+                return addJobFetch(job)
+            }
+            return editJobFetch(job)
+        }
+
+        function addJobFetch(job) {
+            return fetch("/api/job", {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(job)
+            })
+        }
+
+        function editJobFetch(job) {
+            return fetch(`/api/job/${jobId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(job)
+            })
+        }
+
+        function handleBadRequest(json) {
+            var errors = json['errors']
+            if (!errors) {
+                errors = [json['error']]
+            }
+            showErrors(errors)
+        }
+
+        async function handleBadRequestAwait(res) {
+            var json = await res.json()
+            handleBadRequest(json);
+        }
+
+        function showErrors(errors) {
+            errors.forEach(function (error) {
+                showError(error)
+            });
+        }
+
+        function showError(error) {
+            const span = document.createElement('span');
+            span.setAttribute('style', 'color:red');
+            span.setAttribute('class', 'error');
+            const errorText = document.createTextNode(error)
+            span.appendChild(errorText);
+
+            const br = document.createElement('br');
+
+            errorsForm = document.getElementById("errors")
+            errorsForm.appendChild(span);
+            errorsForm.appendChild(br);
+
+        }
+
+        function clearForms() {
+            document.getElementById("errors").innerHTML = "";
+        }
+
+        function showSavedJob(json) {
+            const jobId = json['id']
+            window.location.href = `/job/${jobId}`;
+        }
+
+        function getJobPath() {
+            const pathInput = document.getElementById("job-path-input")
+            return pathInput.value
+        }
+
+        function getContourId() {
+            const contour = document.getElementById("contour")
+            var value = contour.value;
+            return value
+        }
+
+        function getTestCasesId() {
+            const testCases = document.getElementById("test-cases-input").value
+            if (!testCases) return null
+            const testCasesAsList = testCases.split("\n")
+
+            return testCasesAsList
+        }
+
+        function deleteJob() {
+            fetch(`/api/job/${jobId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => {
+                    if (response.ok) {
+                        alert('job was deleted')
+                        window.location.href = "/";
+                    } else {
+                        handleBadRequestAwait(response)
+                    }
+                })
+                .catch((error) => {
+                    console.log(error)
+                    alert('Something went wrong')
+                });
+        }
+
+        function loadRequirements(job) {
+            $('#requirements tbody').empty();
+
+            job.timeLimits.forEach(function (timeLimit) {
+                loadRequirement('time-limit', timeLimit);
+            }
+            )
+        }
+
+        function loadRequirement(type, requirement) {
+            const reqTableTbody = document.getElementById("requirements-tbody")
+            const typeColumn = document.createElement('td');
+            typeColumn.innerHTML = type
+
+            const valueColumn = document.createElement('td');
+            valueColumn.innerHTML = JSON.stringify(requirement, null, 4)
+
+            const deleteButton = document.createElement('button');
+            deleteButton.onclick = function () { deleteRequirement(type, requirement.id) }
+            deleteButton.textContent = 'delete'
+            deleteButton.type = "button"
+            deleteButton.style.width = '70px'
+            deleteButton.style.height = '30px'
+            const editButton = document.createElement('button');
+            editButton.textContent = "edit"
+            editButton.type = "button"
+            editButton.style.width = '70px'
+            editButton.style.height = '30px'
+
+            editButton.onclick = function () { window.location.href = `/edit-requirement/${type}/${requirement.id}`; }
+
+
+
+            const actionsColumn = document.createElement('td');
+            actionsColumn.appendChild(deleteButton)
+            actionsColumn.appendChild(editButton)
+
+            const row = document.createElement('tr');
+            row.appendChild(typeColumn)
+            row.appendChild(valueColumn)
+            row.appendChild(actionsColumn)
+
+            reqTableTbody.appendChild(row)
+
+        }
+
+        async function deleteRequirement(type, id) {
+            fetch(`/api/requirement/${type}/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => {
+                    if (response.ok) {
+                        alert(`${type} requirement was deleted`)
+                        reloadRequirements()
+                    } else {
+                        alert('Something went wrong')
+                    }
+                })
+                .catch((error) => {
+                    console.log(error)
+                    alert('Something went wrong')
+                });
+        }
+
+        async function reloadRequirements() {
+            const job = await getJob()
+            loadRequirements(job)
+        }
+
+        function addTimeLimit() {
+            window.location.href = `/add-requirement/time-limit?jobId=${jobId}`;
+        }
+    </script>
+</body>
+
+</html>

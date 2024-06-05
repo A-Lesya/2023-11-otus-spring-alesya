@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="keywords" th:content="${keywords}" />
+    <title>Job</title>
+    <style type="text/css">
+        body {
+            padding: 50px;
+        }
+
+        label {
+            display: inline-block;
+            width: 100px;
+        }
+
+        input:read-only {
+            background: lightgray;
+        }
+
+        .row {
+            margin-top: 10px;
+        }
+
+        .configs {
+            border: 1px solid steelblue;
+            width: 500px;
+            border-collapse: collapse;
+        }
+
+        .configs tr td,
+        th {
+            padding: 5px;
+            border: 1px solid steelblue;
+        }
+
+        .configs td:last-child,
+        td:first-child {
+            width: 100px;
+        }
+    </style>
+    <script src="/webjars/jquery/3.6.4/jquery.min.js"></script>
+</head>
+
+<body th:onload="loadForms()">
+    <a href="home.html" th:href="@{/}"><button type="button">Home</button></a>
+    <br />
+    <br />
+    <h1 id="tc_id"></h1>
+    <br />
+    <button type="button" onclick="deleteTc()" th:text="#{delete-button-caption}">Delete</button>
+    <br />
+    <form id="errors"></form>
+    <br />
+
+    <form>
+        <div class="row">
+            <form>
+                <table class="configs" id="configs">
+                    <thead>
+                        <tr>
+                            <th>config num</th>
+                            <th>runs</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="configs-tbody">
+                    </tbody>
+                </table>
+            </form>
+            <br />
+
+            <br />
+            <input id="new-confug-num-input" type="text" cols="20" rows="30"></input>
+            <button type="button" onclick="addConfig()" th:text="#{add-config-button-caption}">add config</button>
+        </div>
+    </form>
+
+    <script>
+        const tcId = getTcIdFromPathVariable()
+
+        function getTcIdFromPathVariable() {
+            var currentPath = window.location.pathname;
+
+            const regex = /\/test-case\/([\w_\d]+)/g;
+            let m;
+
+            if ((m = regex.exec(currentPath)) !== null) {
+                return m[1]
+            }
+            return null
+        }
+
+        async function loadForms() {
+            var tc = await getTc()
+
+            document.getElementById('tc_id').innerHTML = tcId
+            loadConfigs(tc)
+        }
+
+        async function getTc() {
+            var res = await execGetTcRequest()
+            var json = await res.json()
+            var tc = null
+
+            if (!res.ok) {
+                handleBadRequest(json)
+            } else {
+                tc = json
+            }
+
+            return tc
+        }
+
+        async function execGetTcRequest() {
+            return fetch(`/api/test-case/${tcId}`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+        }
+
+        async function handleBadRequestAwait(res) {
+            var json = await res.json()
+            handleBadRequest(json);
+        }
+
+        function handleBadRequest(json) {
+            var errors = json['errors']
+            if (!errors) {
+                errors = [json['error']]
+            }
+            showErrors(errors)
+        }
+
+        function showErrors(errors) {
+            clearErrors()
+            errors.forEach(function (error) {
+                showError(error)
+            });
+        }
+
+        function showError(error) {
+            const span = document.createElement('span');
+            span.setAttribute('style', 'color:red');
+            span.setAttribute('class', 'error');
+            const errorText = document.createTextNode(error)
+            span.appendChild(errorText);
+
+            const br = document.createElement('br');
+
+            errorsForm = document.getElementById("errors")
+            errorsForm.appendChild(span);
+            errorsForm.appendChild(br);
+
+        }
+
+        function clearErrors() {
+            document.getElementById("errors").innerHTML = "";
+        }
+
+        function deleteTc() {
+            fetch(`/api/test-case/${tcId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => {
+                    if (response.ok) {
+                        alert('test case was deleted')
+                        window.location.href = "/";
+                    } else {
+                        handleBadRequestAwait(response)
+                    }
+                })
+                .catch((error) => {
+                    console.log(error)
+                    alert('Something went wrong')
+                });
+        }
+
+        async function execFetch(fetchBody) {
+            fetchBody.then(response => {
+                if (response.ok) {
+                    reloadData()
+                } else {
+                    handleBadRequestAwait(response)
+                }
+            })
+                .catch((error) => {
+                    console.log(error)
+                    alert('Something went wrong')
+                });
+        }
+
+        function loadConfigs(tc) {
+            $('#configs tbody').empty();
+
+            tc.configs.forEach(function (config) {
+                loadConfig(config);
+            }
+            )
+        }
+
+        function loadConfig(config) {
+            const configTableTbody = document.getElementById("configs-tbody")
+
+            const numberColumn = document.createElement('td');
+            numberColumn.innerHTML = config.number
+
+            const runsColumn = document.createElement('td');
+
+            loadConfigRuns(runsColumn, config)
+
+            const deleteButton = document.createElement('button');
+            deleteButton.onclick = function () { deleteConfig(config.id) }
+            deleteButton.textContent = 'delete config'
+            deleteButton.type = "button"
+            deleteButton.style.width = '70px'
+            deleteButton.style.height = '50px'
+
+            const addRunButton = document.createElement('button');
+            addRunButton.onclick = function () { window.location.href = `/add-config-run?tcConfigId=${config.id}`; }
+            addRunButton.textContent = 'add run'
+            addRunButton.type = "button"
+            addRunButton.style.width = '70px'
+            addRunButton.style.height = '50px'
+
+            const actionsColumn = document.createElement('td');
+            actionsColumn.appendChild(deleteButton)
+            actionsColumn.appendChild(addRunButton)
+
+            const row = document.createElement('tr');
+            row.appendChild(numberColumn)
+            row.appendChild(runsColumn)
+            row.appendChild(actionsColumn)
+
+            configTableTbody.appendChild(row)
+        }
+
+        function loadConfigRuns(runsColumn, config) {
+            const table = buildRunsTable()
+            const tbody = document.createElement('tbody');
+
+            config.runs.forEach(function (run) {
+                loadConfigRun(run, tbody)
+            }
+            )
+
+            table.appendChild(tbody)
+
+            runsColumn.appendChild(table)
+        }
+
+        function loadConfigRun(run, tbody) {
+            const descriptionColumn = document.createElement('td');
+            descriptionColumn.innerHTML = run.description
+
+            const requirementsColumn = loadRequirements(run)
+            const actionsColumn = loadRunActionsColumn(run)
+
+            tbody.appendChild(descriptionColumn)
+            tbody.appendChild(requirementsColumn)
+            tbody.appendChild(actionsColumn)
+
+            const row = document.createElement('tr');
+            row.appendChild(descriptionColumn)
+            row.appendChild(requirementsColumn)
+            row.appendChild(actionsColumn)
+
+            tbody.appendChild(row)
+        }
+
+        function loadRunActionsColumn(run) {
+            const deleteButton = document.createElement('button');
+            deleteButton.onclick = function () { deleteConfigRun(run.id) }
+            deleteButton.textContent = 'delete run'
+            deleteButton.type = "button"
+            deleteButton.style.width = '70px'
+            deleteButton.style.height = '50px'
+
+            const editButton = document.createElement('button');
+            editButton.textContent = "edit run"
+            editButton.type = "button"
+            editButton.style.width = '70px'
+            editButton.style.height = '50px'
+            editButton.onclick = function () { window.location.href = `/edit-config-run/${run.id}`; }
+
+            const addTimeLimittButton = document.createElement('button');
+            addTimeLimittButton.textContent = "Добавить time limit"
+            addTimeLimittButton.type = "button"
+            addTimeLimittButton.style.width = '70px'
+            addTimeLimittButton.style.height = '50px'
+            addTimeLimittButton.onclick = function () { window.location.href = `/add-requirement/time-limit?configRunId=${run.id}`; }
+
+            const actionsColumn = document.createElement('td');
+            actionsColumn.appendChild(deleteButton)
+            actionsColumn.appendChild(editButton)
+            actionsColumn.appendChild(addTimeLimittButton)
+
+            return actionsColumn
+        }
+
+        function loadRequirements(run) {
+            const requirementsColumn = document.createElement('td')
+            run.timeLimits.forEach(function (timeLimit) {
+                loadRequirement(requirementsColumn, 'time-limit', timeLimit);
+            }
+            )
+            return requirementsColumn
+        }
+
+        function loadRequirement(reqTableTbody, type, requirement) {
+            const typeColumn = document.createElement('td');
+            typeColumn.innerHTML = type
+
+            const valueColumn = document.createElement('td');
+            valueColumn.innerHTML = JSON.stringify(requirement, null, 4)
+
+            const deleteButton = document.createElement('button');
+            deleteButton.onclick = function () { deleteRequirement(type, requirement.id) }
+            deleteButton.textContent = 'delete'
+            deleteButton.type = "button"
+            deleteButton.style.width = '70px'
+            deleteButton.style.height = '50px'
+            const editButton = document.createElement('button');
+            editButton.textContent = "edit"
+            editButton.type = "button"
+            editButton.style.width = '70px'
+            editButton.style.height = '50px'
+
+            editButton.onclick = function () { window.location.href = `/edit-requirement/${type}/${requirement.id}`; }
+
+            const actionsColumn = document.createElement('td');
+            actionsColumn.appendChild(deleteButton)
+            actionsColumn.appendChild(editButton)
+
+            const row = document.createElement('tr');
+            row.appendChild(typeColumn)
+            row.appendChild(valueColumn)
+            row.appendChild(actionsColumn)
+
+            reqTableTbody.appendChild(row)
+        }
+
+        async function deleteRequirement(type, id) {
+            fetch(`/api/requirement/${type}/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => {
+                    if (response.ok) {
+                        alert(`${type} requirement was deleted`)
+                        reloadData()
+                    } else {
+                        alert('Something went wrong')
+                    }
+                })
+                .catch((error) => {
+                    console.log(error)
+                    alert('Something went wrong')
+                });
+        }
+
+        function addTimeLimit(configRunId) {
+            window.location.href = `/add-requirement/time-limit?configRunId=${configRunId}`;
+        }
+
+
+        function buildRunsTable() {
+            const table = document.createElement('table');
+            table.class = "configs"
+            const thead = document.createElement('thead');
+            const tr = document.createElement('tr');
+
+            const thDescription = document.createElement('th');
+            thDescription.innerHTML = 'description'
+            const thRequirements = document.createElement('th');
+            thRequirements.textContent = 'requirements'
+            const thActions = document.createElement('th');
+            tr.appendChild(thDescription)
+            tr.appendChild(thRequirements)
+            tr.appendChild(thActions)
+
+            thead.appendChild(tr)
+            table.appendChild(thead)
+
+            return table
+        }
+
+        function buildRunRequirementsTable() {
+            const table = document.createElement('table');
+            table.class = "configs"
+            const thead = document.createElement('thead');
+            const tr = document.createElement('tr');
+
+            const thType = document.createElement('th');
+            thType.innerHTML = 'type'
+            const thValue = document.createElement('th');
+            thValue.textContent = 'value'
+            const thActions = document.createElement('th');
+            tr.appendChild(thType)
+            tr.appendChild(thValue)
+            tr.appendChild(thActions)
+
+            thead.appendChild(tr)
+            table.appendChild(thead)
+
+            return table
+        }
+
+
+        function deleteConfigFetch(id) {
+            return fetch(`/api/tc-config/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+        }
+
+        function deleteConfigRunFetch(id) {
+            return fetch(`/api/config-run/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+        }
+
+        async function addConfig() {
+            execFetch(addConfigFetch());
+        }
+
+        function addConfigFetch() {
+            const configNumber = getConfigNumberInput()
+            const config = {
+                "number": configNumber
+            }
+
+            return fetch(`/api/tc-config?tcId=${tcId}`, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(config)
+            })
+        }
+
+        function getConfigNumberInput() {
+            return document.getElementById('new-confug-num-input').value
+        }
+
+        async function deleteConfig(id) {
+            execFetch(deleteConfigFetch(id));
+        }
+
+        async function deleteConfigRun(id) {
+            execFetch(deleteConfigRunFetch(id));
+        }
+
+        async function reloadData() {
+            window.location.reload(true)
+        }
+
+    </script>
+</body>
+
+</html>

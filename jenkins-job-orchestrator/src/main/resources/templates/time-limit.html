@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="keywords" th:content="${keywords}" />
+    <title>Job</title>
+    <style type="text/css">
+        body {
+            padding: 50px;
+        }
+
+        label {
+            display: inline-block;
+            width: 100px;
+        }
+
+        input:read-only {
+            background: lightgray;
+        }
+
+        .row {
+            margin-top: 10px;
+        }
+
+        .requirements {
+            border: 1px solid steelblue;
+            width: 500px;
+            border-collapse: collapse;
+        }
+
+        .requirements tr td,
+        th {
+            padding: 5px;
+            border: 1px solid steelblue;
+        }
+
+        .requirements td:last-child,
+        td:first-child {
+            width: 100px;
+        }
+    </style>
+    <script src="/webjars/jquery/3.6.4/jquery.min.js"></script>
+</head>
+
+<body th:onload="loadForms()">
+    <a href="home.html" th:href="@{/}"><button type="button">Home</button></a>
+    <br />
+    <br />
+    <br />
+    <button type="button" onclick="save()" th:text="#{save-button-caption}">Save</button>
+    <br />
+    <form id="errors"></form>
+    <br />
+
+    <form id="time-limit-form" hidden="true">
+        <div class="row">
+            <label for="description-input">description:</label>
+            <input id="description-input" type="text" />
+            <br />
+
+            <label for="after-input">after</label>
+            <input id="after-input" type="time" />
+            <br />
+            <label for="before-input">before</label>
+            <input id="before-input" type="time" />
+
+        </div>
+    </form>
+
+    <script>
+        const reqId = getReqIdFromPathVariable()
+
+        const reqType = getReqTypeFromPathVariable()
+
+        const jobId = getReqJobIdFromPathVariable()
+
+        const configRunId = getReqconfigRunIdIdFromPathVariable()
+
+        function isTimeLimitType() {
+            return reqType === "time-limit"
+        }
+
+        function getReqIdFromPathVariable() {
+            var currentPath = window.location.pathname;
+
+            const regex = /\/edit-requirement\/.*\/(\d+)/g;
+            let m;
+
+            if ((m = regex.exec(currentPath)) !== null) {
+                return m[1]
+            }
+            return null
+        }
+
+        function getReqTypeFromPathVariable() {
+            var currentPath = window.location.pathname;
+
+            if (isTimeLimit(currentPath)) {
+                return 'time-limit'
+            }
+            return null
+        }
+
+        function isTimeLimit(currentPath) {
+            const regex = /.*time-limit.*/g;
+            let m;
+
+            return ((m = regex.exec(currentPath)) !== null)
+        }
+
+        function getReqJobIdFromPathVariable() {
+            var currentPath = window.location.href
+
+            const regex = /.*jobId=(\d+)/g;
+            let m;
+
+            if ((m = regex.exec(currentPath)) !== null) {
+                return m[1]
+            }
+            return null
+        }
+
+        function getReqconfigRunIdIdFromPathVariable() {
+            var currentPath = window.location.href
+
+            const regex = /.*configRunId=(\d+)/g;
+            let m;
+
+            if ((m = regex.exec(currentPath)) !== null) {
+                return m[1]
+            }
+            return null
+        }
+
+        function isNewReqAdditionPage() {
+            return !reqId
+        }
+
+        async function loadForms() {
+            if (isTimeLimitType()) {
+                loadTimeLimitForms()
+            }
+        }
+        async function loadTimeLimitForms() {
+            document.getElementById('time-limit-form').hidden = false
+
+            var actualDescription = null
+            var actualBefore = null
+            var actualAfter = null
+            var req = null
+
+            var isNewReq = isNewReqAdditionPage()
+
+            if (!isNewReq) {
+                req = await getReq()
+
+                actualDescription = req.description
+                actualBefore = req.before
+                actualAfter = req.after
+            }
+
+            loadDescription(actualDescription)
+            loadBefore(actualBefore)
+            loadAfter(actualAfter)
+        }
+
+        async function getReq() {
+            var res = await execGetReqRequest()
+            var json = await res.json()
+            var req = null
+
+            if (!res.ok) {
+                handleBadRequest(json)
+            } else {
+                req = json
+            }
+
+            return req
+        }
+
+        async function execGetReqRequest() {
+            return fetch(`/api/requirement/${reqType}/${reqId}`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+        }
+
+        function loadDescription(actualDescription) {
+            if (actualDescription) {
+                const input = document.getElementById("description-input")
+                input.value = actualDescription
+            }
+        }
+
+        function loadBefore(before) {
+            if (before) {
+                const input = document.getElementById("before-input")
+                input.value = before
+            }
+        }
+
+        function loadAfter(after) {
+            if (after) {
+                const input = document.getElementById("after-input")
+                input.value = after
+            }
+        }
+
+        function save() {
+            clearForms()
+
+            const description = getDescription()
+
+            const before = getBefore()
+            const after = getAfter()
+
+            const req = {
+                "description": description,
+                "before": before,
+                "after": after
+            }
+
+            if (jobId) {
+                req['jobId'] = jobId
+            }
+            if (configRunId) {
+                req['configRunId'] = configRunId
+            }
+
+            execFetch(req)
+                .then(res => {
+                    res.json().then(json => {
+                        if (!res.ok) {
+                            handleBadRequest(json)
+                        } else {
+                            showSavedReq(json)
+                        }
+                    })
+                })
+        }
+
+        function execFetch(req) {
+            if (isNewReqAdditionPage()) {
+                return addReqFetch(req)
+            }
+            return editReqFetch(req)
+        }
+
+        function addReqFetch(req) {
+            return fetch(`/api/requirement/${reqType}`, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(req)
+            })
+        }
+
+        function editReqFetch(req) {
+            return fetch(`/api/requirement/${reqType}/${reqId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(req)
+            })
+        }
+
+        function handleBadRequest(json) {
+            var errors = json['errors']
+            if (!errors) {
+                errors = [json['error']]
+            }
+            showErrors(errors)
+        }
+
+        function showErrors(errors) {
+            errors.forEach(function (error) {
+                showError(error)
+            });
+        }
+
+        function showError(error) {
+            const span = document.createElement('span');
+            span.setAttribute('style', 'color:red');
+            span.setAttribute('class', 'error');
+            const errorText = document.createTextNode(error)
+            span.appendChild(errorText);
+
+            const br = document.createElement('br');
+
+            errorsForm = document.getElementById("errors")
+            errorsForm.appendChild(span);
+            errorsForm.appendChild(br);
+
+        }
+
+        function clearForms() {
+            document.getElementById("errors").innerHTML = "";
+        }
+
+        function showSavedReq(json) {
+            window.location = document.referrer;
+        }
+
+        function getDescription() {
+            const input = document.getElementById("description-input")
+            return input.value
+        }
+
+        function getBefore() {
+            const input = document.getElementById("before-input")
+            return input.value
+        }
+
+        function getAfter() {
+            const input = document.getElementById("after-input")
+            return input.value
+        }
+
+        function redirect() {
+
+        }
+    </script>
+</body>
+
+</html>

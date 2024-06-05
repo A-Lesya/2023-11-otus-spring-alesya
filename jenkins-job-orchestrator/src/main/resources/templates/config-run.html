@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="keywords" th:content="${keywords}" />
+    <title>Job</title>
+    <style type="text/css">
+        body {
+            padding: 50px;
+        }
+
+        label {
+            display: inline-block;
+            width: 100px;
+        }
+
+        input:read-only {
+            background: lightgray;
+        }
+
+        .row {
+            margin-top: 10px;
+        }
+
+        .requirements {
+            border: 1px solid steelblue;
+            width: 500px;
+            border-collapse: collapse;
+        }
+
+        .requirements tr td,
+        th {
+            padding: 5px;
+            border: 1px solid steelblue;
+        }
+
+        .requirements td:last-child,
+        td:first-child {
+            width: 100px;
+        }
+    </style>
+    <script src="/webjars/jquery/3.6.4/jquery.min.js"></script>
+</head>
+
+<body th:onload="loadForms()">
+    <a href="home.html" th:href="@{/}"><button type="button">Home</button></a>
+    <br />
+    <br />
+    <br />
+    <button type="button" onclick="save()" th:text="#{save-button-caption}">Save</button>
+    <br />
+    <form id="errors"></form>
+    <br />
+
+    <label for="description-input">description:</label>
+    <input id="description-input" type="text" />
+    <br />
+
+    <script>
+        const runId = getRunIdFromPathVariable()
+
+        const tcConfigId = getTcConfigIdFromPathVariable()
+
+        function getRunIdFromPathVariable() {
+            var currentPath = window.location.pathname;
+
+            const regex = /\/edit-config-run\/(\d+)/g;
+            let m;
+
+            if ((m = regex.exec(currentPath)) !== null) {
+                return m[1]
+            }
+            return null
+        }
+
+        function getTcConfigIdFromPathVariable() {
+            var currentPath = window.location.href
+
+            const regex = /.*tcConfigId=(\d+)/g;
+            let m;
+
+            if ((m = regex.exec(currentPath)) !== null) {
+                return m[1]
+            }
+            return null
+        }
+
+        function isNewRunAdditionPage() {
+            return !runId
+        }
+
+        async function loadForms() {
+
+            var actualDescription = null
+
+            var run = null
+
+            var isNewRun = isNewRunAdditionPage()
+
+            if (!isNewRun) {
+                run = await getRun()
+
+                actualDescription = run.description
+            }
+
+            loadDescription(actualDescription)
+        }
+
+        async function getRun() {
+            var res = await execGetRunRequest()
+            var json = await res.json()
+            var run = null
+
+            if (!res.ok) {
+                handleBadRequest(json)
+            } else {
+                run = json
+            }
+
+            return run
+        }
+
+        async function execGetRunRequest() {
+            return fetch(`/api/config-run/${runId}`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+        }
+
+        function loadDescription(actualDescription) {
+            if (actualDescription) {
+                const input = document.getElementById("description-input")
+                input.value = actualDescription
+            }
+        }
+
+        function save() {
+            clearForms()
+
+            const description = getDescription()
+
+            const run = {
+                "description": description
+            }
+
+            execFetch(run)
+                .then(res => {
+                    res.json().then(json => {
+                        if (!res.ok) {
+                            handleBadRequest(json)
+                        } else {
+                            showSavedRun(json)
+                        }
+                    })
+                })
+        }
+
+        function execFetch(run) {
+            if (isNewRunAdditionPage()) {
+                return addRunFetch(run)
+            }
+            return editRunFetch(run)
+        }
+
+        function addRunFetch(run) {
+            return fetch(`/api/config-run?tcConfigId=${tcConfigId}`, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(run)
+            })
+        }
+
+        function editRunFetch(run) {
+            return fetch(`/api/config-run/${runId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(run)
+            })
+        }
+
+        function handleBadRequest(json) {
+            var errors = json['errors']
+            if (!errors) {
+                errors = [json['error']]
+            }
+            showErrors(errors)
+        }
+
+        function showErrors(errors) {
+            errors.forEach(function (error) {
+                showError(error)
+            });
+        }
+
+        function showError(error) {
+            const span = document.createElement('span');
+            span.setAttribute('style', 'color:red');
+            span.setAttribute('class', 'error');
+            const errorText = document.createTextNode(error)
+            span.appendChild(errorText);
+
+            const br = document.createElement('br');
+
+            errorsForm = document.getElementById("errors")
+            errorsForm.appendChild(span);
+            errorsForm.appendChild(br);
+
+        }
+
+        function clearForms() {
+            document.getElementById("errors").innerHTML = "";
+        }
+
+        function showSavedRun(json) {
+            window.location = document.referrer;
+        }
+
+        function getDescription() {
+            const input = document.getElementById("description-input")
+            return input.value
+        }
+    </script>
+</body>
+
+</html>
