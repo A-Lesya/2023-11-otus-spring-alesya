@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="keywords" th:content="${keywords}" />
+    <title>Found jobs</title>
+    <style type="text/css">
+        body {
+            padding: 50px;
+        }
+
+        .jobs {
+            border: 1px solid steelblue;
+            width: 300px;
+            border-collapse: collapse;
+        }
+
+        .jobs tr td,
+        th {
+            padding: 5px;
+            border: 1px solid steelblue;
+        }
+
+        .jobs td:last-child,
+        td:first-child {
+            width: 50px;
+        }
+    </style>
+    <script src="/webjars/jquery/3.6.4/jquery.min.js"></script>
+</head>
+
+<body>
+    <a href="home.html" th:href="@{/}"><button type="button">Home</button></a>
+    <br />
+    <br />
+
+    <h1 th:text="#{search-job-page-title}">Search Jenkins job</h1>
+
+    <a href="job.html" th:href="@{/add-job}" th:text="#{create-new-job-link-text}">Add new job</a>
+    <br />
+    <br />
+
+    <form id="search-form" action="search_job.html" th:method="get">
+        <div class="row">
+            <label for="job-path-input" th:text="#{job-path-label}">Title:</label>
+            <input id="job-path-input" type="text" />
+            <button type="button" onclick="searchJob()" th:text="#{search-button-caption}">Search</button>
+        </div>
+        <br />
+    </form>
+
+    <table class="jobs" id="found-jobs">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th th:text="#{job-contour}">contour</th>
+                <th th:text="#{job-path}">path</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <script>
+        function searchJob() {
+            const pathInput = document.getElementById("job-path-input")
+
+            const isTitleValid = validateInput(pathInput.value)
+            if (!isTitleValid) return
+
+            let path
+            if (pathInput) {
+                path = `/api/job?path=${pathInput.value}`
+            } else {
+                path = '/api/job'
+            }
+
+            fetch(path, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(rawResponse => rawResponse.json())
+                .then(json => addJobsToTable(json))
+        }
+
+        function addJobsToTable(jobs) {
+            $('#found-jobs tbody').empty();
+
+            jobs.forEach(function (foundJob) {
+                $('tbody').append(`
+                <tr>
+                    <td>${foundJob.id}</td>
+                    <td>${foundJob.contourId}</td>
+                    <td>
+                        <a href="/job/${foundJob.id}">${foundJob.path}</a>
+                    </td>
+                </tr>
+            `)
+            })
+        }
+
+        function validateInput(text) {
+            const regexp = /^[а-яА-Я\w\d\s_\/]*$/
+
+            if (!regexp.test(text)) {
+                alert("Invalid path")
+                return false
+            }
+            return true
+        }
+    </script>
+</body>
+
+</html>

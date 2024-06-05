@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="keywords" th:content="${keywords}" />
+    <title>Found books</title>
+    <style type="text/css">
+        body {
+            padding: 50px;
+        }
+
+        label {
+            display: inline-block;
+            width: 100px;
+        }
+
+        input:read-only {
+            background: lightgray;
+        }
+
+        .row {
+            margin-top: 10px;
+        }
+    </style>
+    <script src="/webjars/jquery/3.6.4/jquery.min.js"></script>
+</head>
+
+<body>
+    <h3 th:text="#{lang-switcher-header}">Select language</h3>
+    <div>
+        <div><a href="#" th:href="@{/(lang=en)}" th:text="#{en-lang-switch-button-caption}">Language - EN</a></div>
+        <div><a href="#" th:href="@{/(lang=ru)}" th:text="#{ru-lang-switch-button-caption}">Language - RU</a></div>
+    </div>
+
+    <br />
+    <br />
+
+    <a href="search_job.html" th:href="@{/search-job}" th:text="#{search-job-page-title}">Search Jenkins job</a>
+    <br />
+    <br />
+    <a href="search_tc.html" th:href="@{/search-test-case}" th:text="#{search-tc-page-title}">Search Jenkins job</a>
+    <br />
+    <br />
+    <br />
+    <a href="orchestrator.html" th:href="@{/orchestrator}" th:text="#{orchestrator-page-title}">Jenkins job
+        orchestrator</a>
+    <br />
+
+    <br />
+
+</body>
+
+</html>

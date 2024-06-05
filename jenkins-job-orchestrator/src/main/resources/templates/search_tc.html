@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="keywords" th:content="${keywords}" />
+    <title>Found jobs</title>
+    <style type="text/css">
+        body {
+            padding: 50px;
+        }
+
+        .jobs {
+            border: 1px solid steelblue;
+            width: 300px;
+            border-collapse: collapse;
+        }
+
+        .jobs tr td,
+        th {
+            padding: 5px;
+            border: 1px solid steelblue;
+        }
+
+        .jobs td:last-child,
+        td:first-child {
+            width: 50px;
+        }
+    </style>
+    <script src="/webjars/jquery/3.6.4/jquery.min.js"></script>
+</head>
+
+<body>
+    <a href="home.html" th:href="@{/}"><button type="button">Home</button></a>
+    <br />
+    <br />
+
+    <h1 th:text="#{search-tc-page-title}">Search testCase</h1>
+    <br />
+    
+    <form id="errors"></form>
+    <br />
+
+    <form id="search-form" action="search_tc.html">
+        <div class="row">
+            <label for="tc-id-input" th:text="#{tc-id-label}">Title:</label>
+            <input id="tc-id-input" type="text" />
+            <button type="button" onclick="searchTc()" th:text="#{search-button-caption}">Search</button>
+            <button type="button" onclick="createTc()" th:text="#{create-new-test-case-button-caption}">Search</button>
+        </div>
+        <br />
+    </form>
+
+    <table class="jobs" id="found-tc">
+        <thead>
+            <tr>
+                <th>TC_ID</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <script>
+
+        function createTc(){
+            const tcIdInput = document.getElementById("tc-id-input")
+            const isInputValid = validateInput(tcIdInput.value)
+            if (!isInputValid) return
+
+            const tc = {
+                "id": tcIdInput.value
+            }
+
+            fetch(`/api/test-case`, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(tc)
+            })
+                .then( res => {
+                    res.json().then(json => {
+                        if (!res.ok) {
+                            handleBadRequest(json)
+                        } else {
+                            showSavedTc(json)
+                        }
+                    })
+                })
+        }
+        function searchTc() {
+            const tcIdInput = document.getElementById("tc-id-input")
+
+            const isInputValid = validateInput(tcIdInput.value)
+            if (!isInputValid) return
+
+            let path
+            if (tcIdInput.value) {
+                path = `/api/test-case?tcId=${tcIdInput.value}`
+            } else {
+                path = '/api/test-case'
+            }
+
+            fetch(path, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(rawResponse => rawResponse.json())
+                .then(json => addTestCasesToTable(json))
+        }
+
+        function addTestCasesToTable(testCases) {
+            $('#found-tc tbody').empty();
+
+            testCases.forEach(function (foundTc) {
+                $('tbody').append(`
+                <tr>
+                    <td>
+                        <a href="/test-case/${foundTc.id}">${foundTc.id}</a>
+                    </td>
+                </tr>
+            `)
+            })
+        }
+
+        function validateInput(text) {
+            const regexp = /^[а-яА-Я\w\d\s_\/]*$/
+
+            if (!regexp.test(text)) {
+                alert("Invalid path")
+                return false
+            }
+            return true
+        }
+
+        function handleBadRequest(json) {
+            var errors = json['errors']
+            if (!errors) {
+                errors = [json['error']]
+            }
+            showErrors(errors)
+        }
+
+        function showErrors(errors) {
+            errors.forEach(function (error) {
+                showError(error)
+            });
+        }
+
+        function showError(error) {
+            const span = document.createElement('span');
+            span.setAttribute('style', 'color:red');
+            span.setAttribute('class', 'error');
+            const errorText = document.createTextNode(error)
+            span.appendChild(errorText);
+
+            const br = document.createElement('br');
+
+            errorsForm = document.getElementById("errors")
+            errorsForm.appendChild(span);
+            errorsForm.appendChild(br);
+
+        }
+
+        function showSavedTc(json) {
+            const tcId = json['id']
+            window.location.href = `/test-case/${tcId}`;
+        }
+
+    </script>
+</body>
+
+</html>
