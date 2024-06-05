@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Add or edit book</title>
+    <style type="text/css">
+        body {
+            padding: 50px;
+        }
+
+        label {
+            display: inline-block;
+            width: 100px;
+        }
+
+        input:read-only {
+            background: lightgray;
+        }
+
+        .row {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body th:onload="loadForms()">
+
+    <a href="search_book.html" th:href="@{/}"><button type="button">Home</button></a>
+    <br />
+
+    <form>
+        <div class="row">
+            <label for="book-title-input" th:text="#{book-title-label}">Title:</label>
+            <input id="book-title-input" type="text" value="New book" />
+        </div>
+    </form>
+    <br />
+    <label for="author" th:text="#{select-author-label}">Choose an author:</label>
+    <br />
+    <select name="Author" id="author">
+    </select>
+    <br />
+    <br />
+
+    <label for="genres" th:text="#{select-genres-label}">Choose genres:</label>
+    <form id="genres">
+    </form>
+
+    <br />
+    <br />
+
+    <button type="button" onclick="save()" th:text="#{save-book-button-caption}">Save</button>
+
+    <br />
+
+    <form id="errors"></form>
+    <br />
+
+    <script>
+        const bookId = getBookIdFromPathVariable()
+
+        function getBookIdFromPathVariable() {
+            var currentPath = window.location.pathname;
+
+            const regex = /\/edit-book\/(\d+)/g;
+            let m;
+
+            if ((m = regex.exec(currentPath)) !== null) {
+                return m[1]
+            }
+            return null
+        }
+
+        async function loadForms() {
+            var actualAuthorId = null
+            var actualGenresId = null
+            var actualTitle = null
+
+            var isNewBook = isNewBookAdditionPage()
+
+            if (!isNewBook) {
+                const book = await getBook()
+
+                actualAuthorId = book.author.id
+                actualGenresId = book.genres.map(genre => genre.id)
+                actualTitle = book.title
+            }
+
+            loadAuthors(actualAuthorId)
+            loadGenres(actualGenresId)
+            loadTitle(actualTitle)
+            loadPageTitle()
+        }
+
+        function loadAuthors(actualAuthorId) {
+            fetch(`/api/author`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(rawResponse => rawResponse.json())
+                .then(json => addAuthorsToSelect(json, actualAuthorId))
+        }
+
+        function addAuthorsToSelect(authors, actualAuthorId) {
+            const select = document.getElementById("author")
+            var value = author.value;
+            authors.forEach(function (author) {
+                const option = document.createElement('option');
+                option.setAttribute('value', author.id);
+                option.appendChild(document.createTextNode(author.fullName));
+                select.appendChild(option);
+            });
+
+            if (actualAuthorId) {
+                select.value = actualAuthorId
+                select.dispatchEvent(new Event('change'))
+            }
+        }
+
+        function loadGenres(actualGenresId) {
+            fetch(`/api/genre`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(rawResponse => rawResponse.json())
+                .then(json => addGenresCheckboxes(json, actualGenresId))
+        }
+
+        function addGenresCheckboxes(genres, actualGenresId) {
+            genres.forEach(function (genre) {
+
+                const input = document.createElement('input');
+                input.setAttribute('type', 'checkbox');
+                input.setAttribute('value', genre.id);
+                input.setAttribute('class', 'genre');
+                input.appendChild(document.createTextNode(genre.name));
+                if (actualGenresId && actualGenresId.includes(genre.id)) {
+                    input.checked = true
+                }
+
+                const label = document.createElement('label');
+                label.setAttribute('for', genre.id);
+                label.appendChild(document.createTextNode(genre.name));
+
+                const br = document.createElement('br');
+
+                genresForm = document.getElementById("genres")
+
+                genresForm.appendChild(input);
+                genresForm.appendChild(label);
+                genresForm.appendChild(br);
+            });
+        }
+
+        function isNewBookAdditionPage() {
+            return !bookId
+        }
+
+        function loadTitle(actualTitle) {
+            if (actualTitle) {
+                const titleInput = document.getElementById("book-title-input")
+                titleInput.value = actualTitle
+            }
+        }
+
+        async function getBook() {
+            var res = await execGetBookRequest()
+            var json = await res.json()
+            var book = null
+
+            if (!res.ok) {
+                const errors = json['errors']
+                showErrors(errors)
+            } else {
+                book = json
+            }
+
+            return book
+        }
+
+        async function execGetBookRequest() {
+            return fetch(`/api/book/${bookId}`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+        }
+
+        function save() {
+            clearForms()
+
+            const title = getBookTitle()
+
+            const authorId = getAuthorId()
+            const genresId = getCheckeGenresId()
+
+            const book = {
+                "title": title,
+                "authorId": authorId,
+                "genresId": genresId
+            }
+
+            execFetch(book)
+                .then(res => {
+                    res.json().then(json => {
+                        if (!res.ok) {
+                            const errors = json['errors']
+                            showErrors(errors)
+                        } else {
+                            showSavedBook(json)
+                        }
+                    })
+                })
+        }
+
+        function execFetch(book) {
+            if (isNewBookAdditionPage()) {
+                return addBookFetch(book)
+            }
+            return editBookFetch(book)
+        }
+
+        function addBookFetch(book) {
+            return fetch("/api/book", {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(book)
+            })
+        }
+
+        function editBookFetch(book) {
+            return fetch(`/api/book/${bookId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(book)
+            })
+        }
+
+        function showErrors(err) {
+            err.forEach(function (error) {
+                const span = document.createElement('span');
+                span.setAttribute('style', 'color:red');
+                span.setAttribute('class', 'error');
+                const errorText = document.createTextNode(error)
+                span.appendChild(errorText);
+
+                const br = document.createElement('br');
+
+                errorsForm = document.getElementById("errors")
+                errorsForm.appendChild(span);
+                errorsForm.appendChild(br);
+            });
+        }
+
+        function clearForms() {
+            document.getElementById("errors").innerHTML = "";
+        }
+
+        function showSavedBook(json) {
+            const bookId = json['id']
+            window.location.href = `/view-book/${bookId}`;
+        }
+
+        function getBookTitle() {
+            const titleInput = document.getElementById("book-title-input")
+            return titleInput.value
+        }
+
+        function getAuthorId() {
+            const author = document.getElementById("author")
+            var value = author.value;
+            return value
+        }
+
+        function getCheckeGenresId() {
+            const genres = document.getElementById("genres")
+            var checkedIds = [];
+            for (var i = 0; genres[i]; ++i) {
+                if (genres[i].checked) {
+                    checkedIds.push(genres[i].value);
+                }
+            }
+            return checkedIds
+        }
+
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="keywords" th:content="${keywords}" />
+    <title>Found books</title>
+    <style type="text/css">
+        body {
+            padding: 50px;
+        }
+
+        .books {
+            border: 1px solid steelblue;
+            width: 300px;
+            border-collapse: collapse;
+        }
+
+        .books tr td,
+        th {
+            padding: 5px;
+            border: 1px solid steelblue;
+        }
+
+        .books td:last-child,
+        td:first-child {
+            width: 50px;
+        }
+    </style>
+    <script src="/webjars/jquery/3.6.4/jquery.min.js"></script>
+</head>
+
+<body>
+    <h3 th:text="#{lang-switcher-header}">Select language</h3>
+    <div>
+        <div><a href="#" th:href="@{/(lang=en)}" th:text="#{en-lang-switch-button-caption}">Language - EN</a></div>
+        <div><a href="#" th:href="@{/(lang=ru)}" th:text="#{ru-lang-switch-button-caption}">Language - RU</a></div>
+    </div>
+
+    <h1 th:text="#{search-book-page-title}">Select language</h1>
+
+    <a href="add_or_edit_book.html" th:href="@{/add-book}" th:text="#{create-new-book-link-text}">Add new book</a>
+    <br />
+    <br />
+
+    <form id="search-form" action="search_book.html" th:method="get">
+        <div class="row">
+            <label for="book-title-input" th:text="#{book-title-label}">Title:</label>
+            <input id="book-title-input" type="text" value="Амбер" />
+            <button type="button" onclick="searchBook()" th:text="#{search-book-button-caption}">Search</button>
+        </div>
+        <br />
+    </form>
+
+    <table class="books" id="found-books">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th th:text="#{book-title}">Title</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <script>
+        function searchBook() {
+            const titleInput = document.getElementById("book-title-input")
+
+            const isTitleValid = validateTitle(titleInput.value)
+            if (!isTitleValid) return
+
+            let path
+            if (titleInput) {
+                path = `/api/book?title=${titleInput.value}`
+            } else {
+                path = '/api/book'
+            }
+
+            fetch(path, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(rawResponse => rawResponse.json())
+                .then(json => addBooksToTable(json))
+        }
+
+        function addBooksToTable(books) {
+            $('#found-books tbody').empty();
+
+            books.forEach(function (foundBook) {
+                $('tbody').append(`
+                <tr>
+                    <td>${foundBook.id}</td>
+                    <td>
+                        <a href="/view-book/${foundBook.id}">${foundBook.title}</a>
+                    </td>
+                </tr>
+            `)
+            })
+        }
+
+        function validateTitle(text) {
+            const regexp = /^[а-яА-Я\w\d\s]*$/
+
+            if (!regexp.test(text)) {
+                alert("Invalid title")
+                return false
+            }
+            return true
+        }
+    </script>
+</body>
+
+</html>
